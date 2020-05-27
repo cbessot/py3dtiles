@@ -191,18 +191,28 @@ def main():
         objects_type = CityMReliefs
     elif args.object_type == "water":
         objects_type = CityMWaterBodies
-        
-    tileset = from_3dcitydb(cursor, objects_type)
+
+    """tileset = from_3dcitydb(cursor, objects_type)"""
+
+    builings = ( 4,720,928,720,1161,93,87 )
+
+    CityMCityObjects.retrieve_textures(cursor,builings,CityMBuildings)
 
     cursor.close()
-    tileset.get_root_tile().set_bounding_volume(BoundingVolumeBox())
-    if args.object_type == "building":
+
+    """tileset.get_root_tile().set_bounding_volume(BoundingVolumeBox())"""
+    """if args.object_type == "building":
         tileset.write_to_directory('junk_buildings')
     elif args.object_type == "relief":
         tileset.write_to_directory('junk_reliefs')
     elif args.object_type == "water":
-        tileset.write_to_directory('junk_water_bodies')
+        tileset.write_to_directory('junk_water_bodies')"""
+
+
+
+
 
 
 if __name__ == '__main__':
     main()
+

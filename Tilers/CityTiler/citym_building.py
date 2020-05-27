@@ -99,3 +99,45 @@ class CityMBuildings(CityMCityObjects):
             "GROUP BY building.building_root_id "
 
         return query
+
+    @staticmethod
+    def sql_query_textures(buildings):
+        """
+        :param buildings: a list of CityMBuilding type object that should be sought
+                        in the database. When this list is empty all the objects
+                        encountered in the database are returned.
+
+        :return: a string containing the right SQL query that should be executed.
+        """
+
+        query = \
+            "SELECT building.id , tex_image_data FROM building " + \
+            "JOIN cityobject ON building.id=cityobject.id " + \
+            "JOIN appearance ON cityobject.id=appearance.cityobject_id " + \
+            "JOIN appear_to_surface_data ON appearance.id=appearance_id " + \
+            "JOIN surface_data ON appear_to_surface_data.surface_data_id=surface_data.id " + \
+            "JOIN tex_image ON surface_data.tex_image_id=tex_image.id where building.id IN " + buildings + " "
+
+
+        return query
+
+    @staticmethod
+    def sql_query_texture_coordinates(buildings):
+        """
+        :param buildings: a list of CityMBuilding type object that should be sought
+                        in the database. When this list is empty all the objects
+                        encountered in the database are returned.
+
+        :return: a string containing the right SQL query that should be executed.
+        """
+
+        query = \
+            "SELECT texture_coordinates , building.id from building " + \
+            "join cityobject on building.id=cityobject.id "+ \
+            "join appearance on cityobject.id=appearance.cityobject_id "+ \
+            "join appear_to_surface_data on appearance.id=appearance_id "+ \
+            "join surface_data on appear_to_surface_data.surface_data_id=surface_data.id  "+ \
+            "join textureparam on surface_data.id=textureparam.surface_geometry_id where building.id IN" + buildings + " "
+
+        return query
+

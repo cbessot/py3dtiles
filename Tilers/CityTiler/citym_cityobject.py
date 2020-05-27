@@ -127,13 +127,13 @@ class CityMCityObjects:
     @staticmethod
     def sql_query_objects():
         """
-        Virtual method: all CityMCityObjects and childs classes instances should 
+        Virtual method: all CityMCityObjects and childs classes instances should
         implement this method.
 
         :return: no return value.
         """
         pass
-    
+
     @staticmethod
     def retrieve_objects(cursor, objects_type, cityobjects=list()):
         """
@@ -192,12 +192,25 @@ class CityMCityObjects:
     @staticmethod
     def sql_query_geometries():
         """
-        Virtual method: all CityMCityObjects and childs classes instances should 
+        Virtual method: all CityMCityObjects and childs classes instances should
         implement this method.
-        
+
         :return: no return value.
         """
         pass
+
+    @staticmethod
+    def retrieve_textures(cursor, city_object_ids, objects_type):
+
+        city_object_ids_arg = str(city_object_ids).replace(',)', ')')
+
+        cursor.execute(objects_type.sql_query_textures(city_object_ids_arg))
+
+        first = ""
+        second = ""
+        for t in cursor.fetchall():
+            print(t)
+
 
     @staticmethod
     def retrieve_geometries(cursor, city_object_ids, offset, objects_type):
@@ -244,3 +257,4 @@ class CityMCityObjects:
                 'bbox': [[float(i) for i in j] for j in geom.getBbox()]
             })
         return arrays
+
