@@ -111,12 +111,12 @@ class CityMBuildings(CityMCityObjects):
         """
 
         query = \
-            "SELECT building.id , tex_image_data FROM building " + \
+            "SELECT tex_image_data FROM building " + \
             "JOIN cityobject ON building.id=cityobject.id " + \
             "JOIN appearance ON cityobject.id=appearance.cityobject_id " + \
             "JOIN appear_to_surface_data ON appearance.id=appearance_id " + \
             "JOIN surface_data ON appear_to_surface_data.surface_data_id=surface_data.id " + \
-            "JOIN tex_image ON surface_data.tex_image_id=tex_image.id where building.id IN " + buildings + " "
+            "JOIN tex_image ON surface_data.tex_image_id=tex_image.id where building.building_root_id IN " + buildings + " "
 
 
         return query
@@ -132,12 +132,9 @@ class CityMBuildings(CityMCityObjects):
         """
 
         query = \
-            "SELECT texture_coordinates , building.id from building " + \
-            "join cityobject on building.id=cityobject.id "+ \
-            "join appearance on cityobject.id=appearance.cityobject_id "+ \
-            "join appear_to_surface_data on appearance.id=appearance_id "+ \
-            "join surface_data on appear_to_surface_data.surface_data_id=surface_data.id  "+ \
-            "join textureparam on surface_data.id=textureparam.surface_geometry_id where building.id IN" + buildings + " "
-
+            "SELECT  building.id , building.building_root_id , texture_coordinates from  textureparam " + \
+	        "JOIN surface_geometry on surface_geometry.id = textureparam.surface_geometry_id " + \
+	        "JOIN thematic_surface on surface_geometry.root_id = thematic_surface.lod2_multi_surface_id " + \
+	        "JOIN building ON thematic_surface.building_id = building.id " + \
+	        "WHERE building.building_root_id in " + buildings + " "
         return query
-

@@ -12,6 +12,11 @@ from citym_waterbody import CityMWaterBodies
 from database_accesses import open_data_base
 from database_accesses_batch_table_hierarchy import create_batch_table_hierarchy
 
+import sys
+from PIL import Image
+from io import BytesIO
+from struct import *
+
 
 def parse_command_line():
     # arg parse
@@ -55,6 +60,7 @@ def create_tile_content(cursor, cityobjects, objects_type):
     offset = cityobjects.get_centroid()
 
     arrays = CityMCityObjects.retrieve_geometries(cursor, cityobject_ids, offset, objects_type)
+    arrays = CityMCityObjects.retrieve_texture_coordinates(cursor, cityobject_ids, offset, objects_type)
 
     # GlTF uses a y-up coordinate system whereas the geographical data (stored
     # in the 3DCityDB database) uses a z-up coordinate system convention. In
@@ -172,6 +178,12 @@ def from_3dcitydb(cursor, objects_type):
 
     return tileset
 
+def writeImage(data):
+    image = open('monimage.jpg','wb')
+    image.write(data)
+    if image:
+        image.close()
+
 
 def main():
     """
@@ -194,12 +206,25 @@ def main():
 
     """tileset = from_3dcitydb(cursor, objects_type)"""
 
-    builings = ( 4,720,928,720,1161,93,87 )
+    #builings = (1,2,79,62)
+    buildings = (77,78,79)
+    data = CityMCityObjects.retrieve_textures(cursor,buildings,CityMBuildings)
+    #CityMCityObjects.retrieve_texture_coordinates(cursor,builings,CityMBuildings)
+    #r = struct.unpack(data)
+    print(data)
+    # PNG data
+    i = 0
+    while i < len(data) :
+        LEFT_THUMB = data[i][0]
+        stream = BytesIO(LEFT_THUMB)
+        image = Image.open(stream).convert("RGBA")
+        stream.close()
+        image.save('toto' + str(i) + ".png")
+        #image.show()
+        i+=1
 
-    CityMCityObjects.retrieve_textures(cursor,builings,CityMBuildings)
-
+    #CityMCityObjects.retrieve_geometries(cursor,builings,CityMBuildings)
     cursor.close()
-
     """tileset.get_root_tile().set_bounding_volume(BoundingVolumeBox())"""
     """if args.object_type == "building":
         tileset.write_to_directory('junk_buildings')
@@ -215,4 +240,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

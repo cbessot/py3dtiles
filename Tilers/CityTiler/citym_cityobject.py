@@ -201,15 +201,45 @@ class CityMCityObjects:
 
     @staticmethod
     def retrieve_textures(cursor, city_object_ids, objects_type):
+        """
+        :param cursor: a database access cursor
+        :param city_object_ids: a list of (city)gml identifier corresponding to
+                       objects_type type objects whose geometries are sought.
+        :param objects_type: a class name among CityMCityObject derived classes.
+                        For example, objects_type can be "CityMBuilding".
+        :rtype List[Dict]: a TileContent in the form a B3dm.
+        """
+        res = []
+        city_object_ids_arg = str(city_object_ids).replace(',)', ')')
+        cursor.execute(objects_type.sql_query_textures(city_object_ids_arg))
+        for t in cursor.fetchall():
+            res.append(t)
+        return(res)
 
+
+    @staticmethod
+    def retrieve_texture_coordinates(cursor, city_object_ids, objects_type):
+        """
+        :param cursor: a database access cursor
+        :param city_object_ids: a list of (city)gml identifier corresponding to
+                       objects_type type objects whose geometries are sought.
+        :param objects_type: a class name among CityMCityObject derived classes.
+                        For example, objects_type can be "CityMBuilding".
+        :rtype List[Dict]: a TileContent in the form a B3dm.
+        """
+
+        res = []
+        p = []
         city_object_ids_arg = str(city_object_ids).replace(',)', ')')
 
-        cursor.execute(objects_type.sql_query_textures(city_object_ids_arg))
-
-        first = ""
-        second = ""
+        cursor.execute(objects_type.sql_query_texture_coordinates(city_object_ids_arg))
+        city_objects_tab_test = dict()
         for t in cursor.fetchall():
-            print(t)
+            city_object_root_id = t[1]
+            uvs_as_string = t[2]
+            city_objects_tab_test[city_object_root_id] = uvs_as_string
+        print(str(city_objects_tab_test))
+
 
 
     @staticmethod
@@ -232,6 +262,7 @@ class CityMCityObjects:
 
         # Deal with the reordering of the retrieved geometries
         city_objects_with_gmlid_key = dict()
+        city_objects_tab_test = dict()
         for t in cursor.fetchall():
             city_object_root_id = t[0]
             geom_as_string = t[1]
@@ -240,21 +271,34 @@ class CityMCityObjects:
                 # exporter bug?): simply ignore them.
                 print("Warning: no valid geometry in database.")
                 sys.exit(1)
+
             geom = TriangleSoup.from_wkb_multipolygon(geom_as_string)
             if len(geom.triangles[0]) == 0:
                 print("Warning: empty (no) geometry from the database.")
                 sys.exit(1)
             city_objects_with_gmlid_key[city_object_root_id] = geom
 
+        #ici requete
+        cursor.execute(objects_type.sql_query_texture_coordinates(city_object_ids_arg))
+        #fetchall
+        for t in cursor.fetchall():
+            city_object_root_id = t[1]
+            uvs_as_string = t[2]
+            #faire un tableau comme L265
+            city_objects_tab_test[city_object_root_id] = uvs_as_string
+
         # Package the geometries within a data structure that the
         # GlTF.from_binary_arrays() function (see below) expects to consume:
         arrays = []
         for incoming_id in city_object_ids:
             geom = city_objects_with_gmlid_key[incoming_id]
+            uv = city_objects_tab_test[incoming_id]
+            #varUV= tab[incoming_id]
             arrays.append({
                 'position': geom.getPositionArray(),
                 'normal': geom.getNormalArray(),
-                'bbox': [[float(i) for i in j] for j in geom.getBbox()]
+                'bbox': [[float(i) for i in j] for j in geom.getBbox()],
+                'uv' : uv
+
             })
         return arrays
-
