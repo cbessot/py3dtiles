@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys
-
+import struct
 from py3dtiles import BoundingVolumeBox, TriangleSoup
+import numpy as np
 
 
 class CityMCityObject(object):
@@ -200,7 +201,7 @@ class CityMCityObjects:
         pass
 
     @staticmethod
-    def retrieve_textures(cursor, city_object_ids, objects_type):
+    def retrieve_textures(cursor, image_uri, objects_type):
         """
         :param cursor: a database access cursor
         :param city_object_ids: a list of (city)gml identifier corresponding to
@@ -210,8 +211,8 @@ class CityMCityObjects:
         :rtype List[Dict]: a TileContent in the form a B3dm.
         """
         res = []
-        city_object_ids_arg = str(city_object_ids).replace(',)', ')')
-        cursor.execute(objects_type.sql_query_textures(city_object_ids_arg))
+        #city_object_ids_arg = str(image_uri).replace(',)', ')')
+        cursor.execute(objects_type.sql_query_textures(image_uri))
         for t in cursor.fetchall():
             res.append(t)
         return(res)
@@ -228,19 +229,58 @@ class CityMCityObjects:
         :rtype List[Dict]: a TileContent in the form a B3dm.
         """
 
-        res = []
+
         p = []
         city_object_ids_arg = str(city_object_ids).replace(',)', ')')
-
         cursor.execute(objects_type.sql_query_texture_coordinates(city_object_ids_arg))
         city_objects_tab_test = dict()
+        res = []
+        textures = []
+        temp = []
         for t in cursor.fetchall():
-            city_object_root_id = t[1]
-            uvs_as_string = t[2]
-            city_objects_tab_test[city_object_root_id] = uvs_as_string
-        print(str(city_objects_tab_test))
+            dataUV = test(bytes(t[2]))
+            res.append(dataUV)
+            textures.append(t[3])
+        temp.append(res)
+        temp.append(textures)
+        return(temp)
 
-
+def test(wkb):
+    multipolygon = []
+    # length = len(wkb)
+    # print(length)
+    byteorder = struct.unpack('b', wkb[0:1])
+    bo = '<' if byteorder[0] else '>'
+    geomtype = struct.unpack(bo + 'I', wkb[1:5])[0]
+    hasZ = (geomtype == 1006) or (geomtype == 1015)
+    # MultipolygonZ or polyhedralSurface
+    pntOffset = 24 if hasZ else 16
+    pntUnpack = 'ddd' if hasZ else 'dd'
+    geomNb = struct.unpack(bo + 'I', wkb[5:9])[0]
+    # print(struct.unpack('b', wkb[9:10])[0])
+    # print(struct.unpack('I', wkb[10:14])[0])   # 1003 (Polygon)
+    # print(struct.unpack('I', wkb[14:18])[0])   # num lines
+    # print(struct.unpack('I', wkb[18:22])[0])   # num points
+    offset = 9
+    for i in range(0, geomNb):
+        offset += 5  # struct.unpack('bI', wkb[offset:offset+5])[0]
+        # 1 (byteorder), 1003 (Polygon)
+        lineNb = struct.unpack(bo + 'I', wkb[offset:offset+4])[0]
+        offset += 4
+        polygon = []
+        for j in range(0, lineNb):
+            pointNb = struct.unpack(bo + 'I', wkb[offset:offset+4])[0]
+            offset += 4
+            line = []
+            for k in range(0, pointNb-1):
+                pt = np.array(struct.unpack(bo + pntUnpack, wkb[offset:offset
+                              + pntOffset]))
+                offset += pntOffset
+                line.append(pt)
+            offset += pntOffset   # skip redundant point
+            polygon.append(line)
+        multipolygon.append(polygon)
+    return multipolygon
 
     @staticmethod
     def retrieve_geometries(cursor, city_object_ids, offset, objects_type):
@@ -273,6 +313,7 @@ class CityMCityObjects:
                 sys.exit(1)
 
             geom = TriangleSoup.from_wkb_multipolygon(geom_as_string)
+            print(geom)
             if len(geom.triangles[0]) == 0:
                 print("Warning: empty (no) geometry from the database.")
                 sys.exit(1)
@@ -284,7 +325,6 @@ class CityMCityObjects:
         for t in cursor.fetchall():
             city_object_root_id = t[1]
             uvs_as_string = t[2]
-            #faire un tableau comme L265
             city_objects_tab_test[city_object_root_id] = uvs_as_string
 
         # Package the geometries within a data structure that the
@@ -299,6 +339,5 @@ class CityMCityObjects:
                 'normal': geom.getNormalArray(),
                 'bbox': [[float(i) for i in j] for j in geom.getBbox()],
                 'uv' : uv
-
             })
         return arrays

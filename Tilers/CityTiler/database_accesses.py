@@ -47,8 +47,8 @@ def open_data_base(db_config_file_path):
         keepalives_count=5
     )
     # Why using the keepalives flags in the above psycopg2 constructor ?
-    # In the context of having to tile cities, such a connection can be 
-    # used for bulk querries (think of retrieving the geometries of all the 
+    # In the context of having to tile cities, such a connection can be
+    # used for bulk querries (think of retrieving the geometries of all the
     # buildings of a large city). And it seems that dealing with bulk
     # querries in a dockerized context tends to (randomly) produce the
     # following error:

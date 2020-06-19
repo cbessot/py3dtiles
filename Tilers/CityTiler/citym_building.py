@@ -66,7 +66,7 @@ class CityMBuildings(CityMCityObjects):
             building_gmlids_as_string = "('" + "', '".join(building_gmlids) + "')"
             query = "SELECT building.id, BOX3D(cityobject.envelope), cityobject.gmlid " + \
                     "FROM building JOIN cityobject ON building.id=cityobject.id " + \
-                    "WHERE cityobject.gmlid IN " + building_gmlids_as_string + " " + \
+                    "WHERE cityobject.gmlid = " + building_gmlids_as_string + " " + \
                     "AND building.id=building.building_root_id"
 
         return query
@@ -86,22 +86,27 @@ class CityMBuildings(CityMCityObjects):
         # with their building's sub-divisions (Building is an "abstraction"
         # from which inherits concrete building class as well building-subdivisions
         # a.k.a. parts) we must first collect all the buildings and their parts:
-
         query = \
-            "SELECT building.building_root_id, ST_AsBinary(ST_Multi(ST_Collect( " + \
-            "ST_Translate(surface_geometry.geometry, " + \
+            ("SELECT building.id AS gid, "
+            "ST_AsBinary(ST_Multi(ST_Collect(surface_geometry.geometry, " +\
             str(-offset[0]) + ", " + str(-offset[1]) + ", " + str(-offset[2]) + \
-            ")))) " + \
-            "FROM surface_geometry JOIN thematic_surface " + \
-            "ON surface_geometry.root_id=thematic_surface.lod2_multi_surface_id " + \
-            "JOIN building ON thematic_surface.building_id = building.id " + \
-            "WHERE building.building_root_id IN " + buildings_ids_arg + " " + \
-            "GROUP BY building.building_root_id "
-
+            ")))" +\
+            "ST_AsBinary(ST_Multi(ST_Collect(ST_Translate(ST_Scale(textureparam.texture_coordinates, 1, -1), 0, 1)))) AS uv, "
+            "tex_image_uri AS uri FROM building JOIN "
+            "thematic_surface ON building.id=thematic_surface.building_id JOIN "
+            "surface_geometry ON surface_geometry.root_id="
+            "thematic_surface.lod2_multi_surface_id JOIN textureparam ON "
+            "textureparam.surface_geometry_id=surface_geometry.id "
+            "JOIN surface_data ON textureparam.surface_data_id=surface_data.id "
+            "JOIN tex_image ON surface_data.tex_image_id=tex_image.id "
+            "WHERE building.id IN " + buildings + " "
+            "GROUP BY building.id, tex_image_uri")
         return query
 
+
+
     @staticmethod
-    def sql_query_textures(buildings):
+    def sql_query_textures(image_uri):
         """
         :param buildings: a list of CityMBuilding type object that should be sought
                         in the database. When this list is empty all the objects
@@ -111,18 +116,11 @@ class CityMBuildings(CityMCityObjects):
         """
 
         query = \
-            "SELECT tex_image_data FROM building " + \
-            "JOIN cityobject ON building.id=cityobject.id " + \
-            "JOIN appearance ON cityobject.id=appearance.cityobject_id " + \
-            "JOIN appear_to_surface_data ON appearance.id=appearance_id " + \
-            "JOIN surface_data ON appear_to_surface_data.surface_data_id=surface_data.id " + \
-            "JOIN tex_image ON surface_data.tex_image_id=tex_image.id where building.building_root_id IN " + buildings + " "
-
-
+            "SELECT tex_image_data FROM tex_image WHERE tex_image_uri = '" + image_uri + "' "
         return query
 
     @staticmethod
-    def sql_query_texture_coordinates(buildings):
+    def sql_query_texture_coordinates(offset, buildings):
         """
         :param buildings: a list of CityMBuilding type object that should be sought
                         in the database. When this list is empty all the objects
@@ -132,9 +130,18 @@ class CityMBuildings(CityMCityObjects):
         """
 
         query = \
-            "SELECT  building.id , building.building_root_id , texture_coordinates from  textureparam " + \
-	        "JOIN surface_geometry on surface_geometry.id = textureparam.surface_geometry_id " + \
-	        "JOIN thematic_surface on surface_geometry.root_id = thematic_surface.lod2_multi_surface_id " + \
-	        "JOIN building ON thematic_surface.building_id = building.id " + \
-	        "WHERE building.building_root_id in " + buildings + " "
+            ("SELECT building.id AS gid, "
+            "ST_AsBinary(ST_Multi(ST_Collect(surface_geometry.geometry " +\
+            str(-offset[0]) + ", " + str(-offset[1]) + ", " + str(-offset[2]) + \
+            "))) AS geom , "
+            "ST_AsBinary(ST_Multi(ST_Collect(ST_Translate(ST_Scale(textureparam.texture_coordinates, 1, -1), 0, 1)))) AS uv, "
+            "tex_image_uri AS uri FROM building JOIN "
+            "thematic_surface ON building.id=thematic_surface.building_id JOIN "
+            "surface_geometry ON surface_geometry.root_id="
+            "thematic_surface.lod2_multi_surface_id JOIN textureparam ON "
+            "textureparam.surface_geometry_id=surface_geometry.id "
+            "JOIN surface_data ON textureparam.surface_data_id=surface_data.id "
+            "JOIN tex_image ON surface_data.tex_image_id=tex_image.id "
+            "WHERE building.id IN " + buildings + " "
+            "GROUP BY building.id, tex_image_uri")
         return query

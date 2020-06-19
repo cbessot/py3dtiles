@@ -60,7 +60,7 @@ def create_tile_content(cursor, cityobjects, objects_type):
     offset = cityobjects.get_centroid()
 
     arrays = CityMCityObjects.retrieve_geometries(cursor, cityobject_ids, offset, objects_type)
-    arrays = CityMCityObjects.retrieve_texture_coordinates(cursor, cityobject_ids, offset, objects_type)
+    #arrays = CityMCityObjects.retrieve_texture_coordinates(cursor, cityobject_ids, offset, objects_type)
 
     # GlTF uses a y-up coordinate system whereas the geographical data (stored
     # in the 3DCityDB database) uses a z-up coordinate system convention. In
@@ -104,6 +104,7 @@ def from_3dcitydb(cursor, objects_type):
 
     :return: a tileset.
     """
+
     cityobjects = CityMCityObjects.retrieve_objects(cursor, objects_type)
 
     if not cityobjects:
@@ -178,11 +179,149 @@ def from_3dcitydb(cursor, objects_type):
 
     return tileset
 
-def writeImage(data):
-    image = open('monimage.jpg','wb')
-    image.write(data)
-    if image:
-        image.close()
+#addition of u and v (simplest solution to find max and min)
+def add_uv(uv_tab):
+    dataUV_add = uv_tab
+    print(" \n ")
+    i = 0
+    while i < len(dataUV_add):
+        y = 0
+        while y < len(dataUV_add[i]):
+            w = 0
+            while w < len(dataUV_add[i][y]):
+                dataUV_add[i][y][w] = dataUV_add[i][y][w][0] + dataUV_add[i][y][w][1]
+                w+=1
+            y+=1
+        i+=1
+    return(dataUV_add)
+#returning the index of uv max
+def searchMin(uv_tab_add):
+    if len(uv_tab_add) != 0:
+        i = 0
+        minimum = uv_tab_add[0]
+        while i < len(uv_tab_add):
+            if uv_tab_add[i] < minimum :
+                minimum = uv_tab_add[i]
+            i+=1
+        return uv_tab_add.index(minimum)
+    else :
+        return ('Error : parameter \'tab\' is empty')
+#returning the index of uv max
+def searchMax(uv_tab_add):
+
+    if len(uv_tab_add) != 0:
+        i = 0
+        maximum = uv_tab_add[0]
+        while i < len(uv_tab_add):
+            if uv_tab_add[i] > maximum :
+                maximum = uv_tab_add[i]
+            i+=1
+        return uv_tab_add.index(maximum)
+    else :
+        return ('Error : parameter \'tab\' is empty')
+#find min value uv about his index
+def findMin(data):
+    tab_of_index_min = []
+    y = 0
+    while y < len(data):
+        indexOfOneBuildings = []
+        dataAdd = add_uv(data[0][y])
+        i = 0
+        while i < len(dataAdd):
+                indexOfOneBuildings.append(searchMin(dataAdd[i][0]))
+                i+=1
+        tab_of_index_min.append(indexOfOneBuildings)
+        y+=1
+    return tab_of_index_min
+#find max value uv about his index
+def findMax(data):
+    tab_of_index_max = []
+    y = 0
+    while y < len(data):
+        indexOfOneBuildings = []
+        dataAdd = add_uv(data[0][y])
+        i = 0
+        while i < len(dataAdd):
+                indexOfOneBuildings.append(searchMax(dataAdd[i][0]))
+                i+=1
+        tab_of_index_max.append(indexOfOneBuildings)
+        y+=1
+
+    return tab_of_index_max
+    """i = 0
+    while i < len(data[0]):
+        y = 0
+        while y < len(data[0][i]):
+            print(data[0][i][y][0][maximums[i][y]])
+            y+=1
+        print('\n \n')
+        i+=1"""
+
+def tab_u(data):
+    tab_u = []
+    i = 0
+    while i < len(data[0]):
+        y = 0
+        tab_u_geom = []
+        while y < len(data[0][i]):
+            z = 0
+            tab_u_list = []
+            while z < len(data[0][i][y][0]):
+                tab_u_list.append(data[0][i][y][0][z][0])
+                z+=1
+            tab_u_geom.append(tab_u_list)
+            y+=1
+        tab_u.append(tab_u_geom)
+        i+=1
+    return tab_u
+
+def tab_v(data):
+    tab_v = []
+    i = 0
+    while i < len(data[0]):
+        y = 0
+        tab_v_geom = []
+        while y < len(data[0][i]):
+            z = 0
+            tab_v_list = []
+            while z < len(data[0][i][y][0]):
+                tab_v_list.append(data[0][i][y][0][z][1])
+                z+=1
+            tab_v_geom.append(tab_v_list)
+            y+=1
+        tab_v.append(tab_v_geom)
+        i+=1
+    return tab_v
+
+def min_tab(tab):
+    tab_min = []
+    tab_min_builings = []
+    i = 0
+    while i < len(tab):
+        y = 0
+        tab_min_geom = []
+        while y < len(tab[i]):
+            minimum = np.min(tab[i][y])
+            tab_min_geom.append(minimum)
+            y+=1
+        tab_min.append(tab_min_geom)
+        i+=1
+    return tab_min
+
+def max_tab(tab):
+    tab_max = []
+    tab_max_builings = []
+    i = 0
+    while i < len(tab):
+        y = 0
+        tab_max_geom = []
+        while y < len(tab[i]):
+            maximum = np.max(tab[i][y])
+            tab_max_geom.append(maximum)
+            y+=1
+        tab_max.append(tab_max_geom)
+        i+=1
+    return tab_max
 
 
 def main():
@@ -204,34 +343,67 @@ def main():
     elif args.object_type == "water":
         objects_type = CityMWaterBodies
 
-    """tileset = from_3dcitydb(cursor, objects_type)"""
+    tileset = from_3dcitydb(cursor, objects_type)
 
-    #builings = (1,2,79,62)
-    buildings = (77,78,79)
-    data = CityMCityObjects.retrieve_textures(cursor,buildings,CityMBuildings)
-    #CityMCityObjects.retrieve_texture_coordinates(cursor,builings,CityMBuildings)
-    #r = struct.unpack(data)
-    print(data)
-    # PNG data
+    #list of buildings
+    """buildings = (3, 4)
+
+    #récupération des URI des textures
+    data = CityMCityObjects.retrieve_texture_coordinates(cursor,buildings,CityMBuildings)
+    tab_u_var = tab_u(data)
+    tab_min_u = min_tab(tab_u_var)
+    tab_max_u = max_tab(tab_u_var)
+
+    tab_v_var = tab_v(data)
+    tab_min_v = min_tab(tab_v_var)
+    tab_max_v = max_tab(tab_v_var)
+
+    #Récupération des données binaires des textures associées à la liste de buildings grâce aux URI des images | retour -> liste contenant les bonnes textures sous forme de données bninaires
+    image_uri_list = data[1]
+    imageDataList = []
     i = 0
-    while i < len(data) :
-        LEFT_THUMB = data[i][0]
+    while i < len(image_uri_list):
+        imageDataList.append(CityMCityObjects.retrieve_textures(cursor,image_uri_list[i],CityMBuildings))
+        i+=1
+
+    #Determiner les UVs maximums et minimums pour chaques géométries de chaques bâtiments
+    maximums = findMax(data)
+    data = CityMCityObjects.retrieve_texture_coordinates(cursor,buildings,CityMBuildings)
+    minimums = findMin(data)
+    data = CityMCityObjects.retrieve_texture_coordinates(cursor,buildings,CityMBuildings)
+    i = 0
+    z = 0
+    while i < len(tab_u_var):
+        y = 0
+        LEFT_THUMB = imageDataList[i][0][0]
         stream = BytesIO(LEFT_THUMB)
         image = Image.open(stream).convert("RGBA")
-        stream.close()
-        image.save('toto' + str(i) + ".png")
-        #image.show()
-        i+=1
+        while y < len(tab_u_var[i]):
+            width , height = image.size
+            max_width = tab_max_u[i][y] * width
+            max_height = tab_max_v[i][y] * height
+            min_width = tab_min_u[i][y] * width
+            min_height = tab_min_v[i][y] * height
+            print(width , height)
+            print(min_width , min_height , max_width , max_height)
+            y+=1
+            if min_height >= max_height  or min_width >= max_width : continue
+            forkImage = image.crop((min_width , min_height , max_width , max_height))
+            #tream.close()
+            forkImage.save('textures_extract/texture_' + str(i) + '_' + str(y) + '.png' )
+            print(y)
+            z+=1
+        i+=1"""
 
     #CityMCityObjects.retrieve_geometries(cursor,builings,CityMBuildings)
     cursor.close()
-    """tileset.get_root_tile().set_bounding_volume(BoundingVolumeBox())"""
-    """if args.object_type == "building":
+    tileset.get_root_tile().set_bounding_volume(BoundingVolumeBox())
+    if args.object_type == "building":
         tileset.write_to_directory('junk_buildings')
     elif args.object_type == "relief":
         tileset.write_to_directory('junk_reliefs')
     elif args.object_type == "water":
-        tileset.write_to_directory('junk_water_bodies')"""
+        tileset.write_to_directory('junk_water_bodies')
 
 
 
