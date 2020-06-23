@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys
+import numpy as np
 import struct
 from py3dtiles import BoundingVolumeBox, TriangleSoup
-import numpy as np
 
 
 class CityMCityObject(object):
@@ -200,50 +200,59 @@ class CityMCityObjects:
         """
         pass
 
+
+
     @staticmethod
-    def retrieve_textures(cursor, image_uri, objects_type):
+    def retrieve_geometries(cursor, city_object_ids, offset, objects_type):
         """
         :param cursor: a database access cursor
         :param city_object_ids: a list of (city)gml identifier corresponding to
                        objects_type type objects whose geometries are sought.
+        :param offset: the offset (a 3D "vector" of floats) by which the
+                       geographical coordinates should be translated (the
+                       computation is done at the GIS level).
         :param objects_type: a class name among CityMCityObject derived classes.
                         For example, objects_type can be "CityMBuilding".
         :rtype List[Dict]: a TileContent in the form a B3dm.
         """
-        res = []
-        #city_object_ids_arg = str(image_uri).replace(',)', ')')
-        cursor.execute(objects_type.sql_query_textures(image_uri))
-        for t in cursor.fetchall():
-            res.append(t)
-        return(res)
-
-
-    @staticmethod
-    def retrieve_texture_coordinates(cursor, city_object_ids, objects_type):
-        """
-        :param cursor: a database access cursor
-        :param city_object_ids: a list of (city)gml identifier corresponding to
-                       objects_type type objects whose geometries are sought.
-        :param objects_type: a class name among CityMCityObject derived classes.
-                        For example, objects_type can be "CityMBuilding".
-        :rtype List[Dict]: a TileContent in the form a B3dm.
-        """
-
-
-        p = []
         city_object_ids_arg = str(city_object_ids).replace(',)', ')')
-        cursor.execute(objects_type.sql_query_texture_coordinates(city_object_ids_arg))
-        city_objects_tab_test = dict()
-        res = []
-        textures = []
-        temp = []
+
+        cursor.execute(objects_type.sql_query_geometries(offset,
+                                                         city_object_ids_arg))
+
+        # Deal with the reordering of the retrieved geometries
+        city_objects_with_gmlid_key = dict()
+        city_objects_uvs_with_gmlid_key = dict()
         for t in cursor.fetchall():
-            dataUV = test(bytes(t[2]))
-            res.append(dataUV)
-            textures.append(t[3])
-        temp.append(res)
-        temp.append(textures)
-        return(temp)
+            city_object_root_id = t[0]
+            geom_as_string = t[1]
+            uv = t[2]
+            if geom_as_string is None:
+                # Some thematic surface may have no geometry (due to a cityGML
+                # exporter bug?): simply ignore them.
+                print("Warning: no valid geometry in database.")
+                sys.exit(1)
+            geom = TriangleSoup.from_wkb_multipolygon(geom_as_string)
+            if len(geom.triangles[0]) == 0:
+                print("Warning: empty (no) geometry from the database.")
+                sys.exit(1)
+            city_objects_with_gmlid_key[city_object_root_id] = geom
+            city_objects_uvs_with_gmlid_key[city_object_root_id] = uv
+
+        # Package the geometries within a data structure that the
+        # GlTF.from_binary_arrays() function (see below) expects to consume:
+        arrays = []
+        for incoming_id in city_object_ids:
+            geom = city_objects_with_gmlid_key[incoming_id]
+            uv = city_objects_uvs_with_gmlid_key[incoming_id]
+            arrays.append({
+                'position': geom.getPositionArray(),
+                'normal': geom.getNormalArray(),
+                'bbox': [[float(i) for i in j] for j in geom.getBbox()],
+                'uv': uv
+            })
+        return arrays
+
 
 def test(wkb):
     multipolygon = []
@@ -274,70 +283,10 @@ def test(wkb):
             line = []
             for k in range(0, pointNb-1):
                 pt = np.array(struct.unpack(bo + pntUnpack, wkb[offset:offset
-                              + pntOffset]))
+                                  + pntOffset]))
                 offset += pntOffset
                 line.append(pt)
             offset += pntOffset   # skip redundant point
             polygon.append(line)
         multipolygon.append(polygon)
     return multipolygon
-
-    @staticmethod
-    def retrieve_geometries(cursor, city_object_ids, offset, objects_type):
-        """
-        :param cursor: a database access cursor
-        :param city_object_ids: a list of (city)gml identifier corresponding to
-                       objects_type type objects whose geometries are sought.
-        :param offset: the offset (a 3D "vector" of floats) by which the
-                       geographical coordinates should be translated (the
-                       computation is done at the GIS level).
-        :param objects_type: a class name among CityMCityObject derived classes.
-                        For example, objects_type can be "CityMBuilding".
-        :rtype List[Dict]: a TileContent in the form a B3dm.
-        """
-        city_object_ids_arg = str(city_object_ids).replace(',)', ')')
-
-        cursor.execute(objects_type.sql_query_geometries(offset,
-                                                         city_object_ids_arg))
-
-        # Deal with the reordering of the retrieved geometries
-        city_objects_with_gmlid_key = dict()
-        city_objects_tab_test = dict()
-        for t in cursor.fetchall():
-            city_object_root_id = t[0]
-            geom_as_string = t[1]
-            if geom_as_string is None:
-                # Some thematic surface may have no geometry (due to a cityGML
-                # exporter bug?): simply ignore them.
-                print("Warning: no valid geometry in database.")
-                sys.exit(1)
-
-            geom = TriangleSoup.from_wkb_multipolygon(geom_as_string)
-            print(geom)
-            if len(geom.triangles[0]) == 0:
-                print("Warning: empty (no) geometry from the database.")
-                sys.exit(1)
-            city_objects_with_gmlid_key[city_object_root_id] = geom
-
-        #ici requete
-        cursor.execute(objects_type.sql_query_texture_coordinates(city_object_ids_arg))
-        #fetchall
-        for t in cursor.fetchall():
-            city_object_root_id = t[1]
-            uvs_as_string = t[2]
-            city_objects_tab_test[city_object_root_id] = uvs_as_string
-
-        # Package the geometries within a data structure that the
-        # GlTF.from_binary_arrays() function (see below) expects to consume:
-        arrays = []
-        for incoming_id in city_object_ids:
-            geom = city_objects_with_gmlid_key[incoming_id]
-            uv = city_objects_tab_test[incoming_id]
-            #varUV= tab[incoming_id]
-            arrays.append({
-                'position': geom.getPositionArray(),
-                'normal': geom.getNormalArray(),
-                'bbox': [[float(i) for i in j] for j in geom.getBbox()],
-                'uv' : uv
-            })
-        return arrays
