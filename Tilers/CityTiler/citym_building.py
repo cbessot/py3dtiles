@@ -70,7 +70,21 @@ class CityMBuildings(CityMCityObjects):
                     "AND building.id=building.building_root_id"
 
         return query
+        
+    @staticmethod
+    def sql_query_textures(image_uri):
+        """
+        :param buildings: a list of CityMBuilding type object that should be sought
+                        in the database. When this list is empty all the objects
+                        encountered in the database are returned.
 
+        :return: a string containing the right SQL query that should be executed.
+        """
+
+        query = \
+            "SELECT tex_image_data FROM tex_image WHERE tex_image_uri = '" + image_uri + "' "
+        return query
+        
     @staticmethod
     def sql_query_geometries(offset, buildings):
         """
