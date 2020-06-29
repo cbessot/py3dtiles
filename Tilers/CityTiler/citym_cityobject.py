@@ -226,33 +226,43 @@ class CityMCityObjects:
         for t in cursor.fetchall():
             city_object_root_id = t[0]
             geom_as_string = t[1]
-            uv = t[2]
+            uv_as_string = t[2]
+            array = []
+            array.append(uv_as_string)
             if geom_as_string is None:
                 # Some thematic surface may have no geometry (due to a cityGML
                 # exporter bug?): simply ignore them.
                 print("Warning: no valid geometry in database.")
                 sys.exit(1)
-            geom = TriangleSoup.from_wkb_multipolygon(geom_as_string)
+            geom = TriangleSoup.from_wkb_multipolygon(geom_as_string, array)
+            #uv = test(uv_as_string)
             if len(geom.triangles[0]) == 0:
                 print("Warning: empty (no) geometry from the database.")
                 sys.exit(1)
             city_objects_with_gmlid_key[city_object_root_id] = geom
-            city_objects_uvs_with_gmlid_key[city_object_root_id] = uv
-
+            #city_objects_uvs_with_gmlid_key[city_object_root_id] = uv
         # Package the geometries within a data structure that the
         # GlTF.from_binary_arrays() function (see below) expects to consume:
         arrays = []
         for incoming_id in city_object_ids:
             geom = city_objects_with_gmlid_key[incoming_id]
-            uv = city_objects_uvs_with_gmlid_key[incoming_id]
+            #uv = city_objects_uvs_with_gmlid_key[incoming_id]
             arrays.append({
                 'position': geom.getPositionArray(),
                 'normal': geom.getNormalArray(),
                 'bbox': [[float(i) for i in j] for j in geom.getBbox()],
-                'uv': uv
+                'uv': geom.getDataArray(0)
             })
         return arrays
 
+def UvAttributeToArray(tuile):
+    array = []
+    for batiments in tuile:
+        for geom in batiments:
+            for uvs in geom:
+                array.append(uvs[0])
+                array.append(uvs[1])
+    return (b''.join(array))
 
 def test(wkb):
     multipolygon = []
@@ -283,7 +293,7 @@ def test(wkb):
             line = []
             for k in range(0, pointNb-1):
                 pt = np.array(struct.unpack(bo + pntUnpack, wkb[offset:offset
-                                  + pntOffset]))
+                                  + pntOffset]), dtype=np.float32)
                 offset += pntOffset
                 line.append(pt)
             offset += pntOffset   # skip redundant point

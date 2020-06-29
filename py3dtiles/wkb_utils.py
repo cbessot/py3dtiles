@@ -78,7 +78,6 @@ class TriangleSoup:
         -------
         Binary array of vertices' positions
         """
-
         verticeTriangles = self.triangles[0]
         verticeArray = vertexAttributeToArray(verticeTriangles)
         return b''.join(verticeArray)
