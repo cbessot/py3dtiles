@@ -2,7 +2,11 @@
 import sys
 import numpy as np
 import struct
+from PIL import Image, ImageDraw
+from io import BytesIO
 from py3dtiles import BoundingVolumeBox, TriangleSoup
+import math
+from math import *
 
 
 class CityMCityObject(object):
@@ -200,10 +204,26 @@ class CityMCityObjects:
         """
         pass
 
+    @staticmethod
+    def retrieve_textures(cursor, image_uri, objects_type):
+        """
+        :param cursor: a database access cursor
+        :param city_object_ids: a list of (city)gml identifier corresponding to
+                       objects_type type objects whose geometries are sought.
+        :param objects_type: a class name among CityMCityObject derived classes.
+                        For example, objects_type can be "CityMBuilding".
+        :rtype List[Dict]: a TileContent in the form a B3dm.
+        """
+        res = []
+        #city_object_ids_arg = str(image_uri).replace(',)', ')')
+        cursor.execute(objects_type.sql_query_textures(image_uri))
+        for t in cursor.fetchall():
+            res.append(t)
+        return(res)
 
 
     @staticmethod
-    def retrieve_geometries(cursor, city_object_ids, offset, objects_type):
+    def retrieve_geometries(cursor, city_object_ids, offset, objects_type, surfaceAtlas=0):
         """
         :param cursor: a database access cursor
         :param city_object_ids: a list of (city)gml identifier corresponding to
@@ -222,7 +242,7 @@ class CityMCityObjects:
 
         # Deal with the reordering of the retrieved geometries
         city_objects_with_gmlid_key = dict()
-        city_objects_uvs_with_gmlid_key = dict()
+        inc = 0
         for t in cursor.fetchall():
             city_object_root_id = t[0]
             geom_as_string = t[1]
@@ -235,14 +255,36 @@ class CityMCityObjects:
                 print("Warning: no valid geometry in database.")
                 sys.exit(1)
             geom = TriangleSoup.from_wkb_multipolygon(geom_as_string, array)
-            #uv = test(uv_as_string)
+            geom.triangles.append(t[3])
+            uvs = geom.triangles[1]
+            
+            #Us = tab_u(uvs)
+            #Vs = tab_v(uvs)
+            #minimum_u = np.min(Us)
+            #minimum_v = np.min(Vs)
+            #maximum_u = np.max(Us)
+            #maximum_v = np.max(Vs)
+
+            forkImage = imageConvert(geom.triangles[2], objects_type, cursor)
+            (width , height) = forkImage.size
+            surface = width * height
+            surfaceAtlas+=surface
+            inc+=1
+
             if len(geom.triangles[0]) == 0:
                 print("Warning: empty (no) geometry from the database.")
                 sys.exit(1)
             city_objects_with_gmlid_key[city_object_root_id] = geom
-            #city_objects_uvs_with_gmlid_key[city_object_root_id] = uv
+
+        #sizeOfAtlas = ceil(math.sqrt(surfaceAtlas))
+        #img = Image.new('RGB', (sizeOfAtlas, sizeOfAtlas), color = 'black')
+
+        #img.save('textures_extract/texture_ATLAS_TEST.png' )
+
+
         # Package the geometries within a data structure that the
         # GlTF.from_binary_arrays() function (see below) expects to consume:
+        print(inc)
         arrays = []
         for incoming_id in city_object_ids:
             geom = city_objects_with_gmlid_key[incoming_id]
@@ -255,6 +297,27 @@ class CityMCityObjects:
             })
         return arrays
 
+def imageConvert(textureUri, objects_type, cursor):
+    imageBinaryData = objects_type.retrieve_textures(cursor, textureUri, objects_type)
+    LEFT_THUMB = imageBinaryData[0][0]
+    stream = BytesIO(LEFT_THUMB)
+    image = Image.open(stream).convert("RGBA")
+    return image
+
+def tab_u(tab):
+    tab_u = []
+    for i in tab:
+        for y in i:
+            tab_u.append(y[0])
+    return tab_u
+
+def tab_v(tab):
+    tab_v = []
+    for i in tab:
+        for y in i:
+            tab_v.append(y[1])
+    return tab_v
+
 def UvAttributeToArray(tuile):
     array = []
     for batiments in tuile:
@@ -263,40 +326,3 @@ def UvAttributeToArray(tuile):
                 array.append(uvs[0])
                 array.append(uvs[1])
     return (b''.join(array))
-
-def test(wkb):
-    multipolygon = []
-    # length = len(wkb)
-    # print(length)
-    byteorder = struct.unpack('b', wkb[0:1])
-    bo = '<' if byteorder[0] else '>'
-    geomtype = struct.unpack(bo + 'I', wkb[1:5])[0]
-    hasZ = (geomtype == 1006) or (geomtype == 1015)
-    # MultipolygonZ or polyhedralSurface
-    pntOffset = 24 if hasZ else 16
-    pntUnpack = 'ddd' if hasZ else 'dd'
-    geomNb = struct.unpack(bo + 'I', wkb[5:9])[0]
-    # print(struct.unpack('b', wkb[9:10])[0])
-    # print(struct.unpack('I', wkb[10:14])[0])   # 1003 (Polygon)
-    # print(struct.unpack('I', wkb[14:18])[0])   # num lines
-    # print(struct.unpack('I', wkb[18:22])[0])   # num points
-    offset = 9
-    for i in range(0, geomNb):
-        offset += 5  # struct.unpack('bI', wkb[offset:offset+5])[0]
-        # 1 (byteorder), 1003 (Polygon)
-        lineNb = struct.unpack(bo + 'I', wkb[offset:offset+4])[0]
-        offset += 4
-        polygon = []
-        for j in range(0, lineNb):
-            pointNb = struct.unpack(bo + 'I', wkb[offset:offset+4])[0]
-            offset += 4
-            line = []
-            for k in range(0, pointNb-1):
-                pt = np.array(struct.unpack(bo + pntUnpack, wkb[offset:offset
-                                  + pntOffset]), dtype=np.float32)
-                offset += pntOffset
-                line.append(pt)
-            offset += pntOffset   # skip redundant point
-            polygon.append(line)
-        multipolygon.append(polygon)
-    return multipolygon

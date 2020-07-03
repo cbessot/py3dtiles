@@ -5,7 +5,7 @@ def kd_tree(cityobjects, maxNumCityMCityObjects, depth=0):
     # The module argument of 2 (in the next line) hard-wires the fact that
     # this kd_tree is in fact a 2D_tree.
     axis = depth % 2
-
+    
     # Within the sorting criteria point[1] refers to the centroid of the
     # bounding boxes of the city objects. And thus, depending on the value of
     # axis, we alternatively sort on the X or Y coordinate of those centroids:

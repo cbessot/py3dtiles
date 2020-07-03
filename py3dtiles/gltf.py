@@ -91,7 +91,6 @@ class GlTF(object):
         -------
         glTF : GlTF
         """
-
         glTF = GlTF()
 
         textured = 'uv' in arrays[0]
@@ -150,7 +149,6 @@ def compute_binary(binVertices, binNormals, binIds, binUvs):
 def compute_header(binVertices, nVertices, bb, transform,
                    textured, batched, batchLength, uri, textureUri):
     # Buffer
-    print(sum(nVertices))
     meshNb = len(binVertices)
     sizeVce = []
     for i in range(0, meshNb):
@@ -297,6 +295,7 @@ def compute_header(binVertices, nVertices, bb, transform,
     }
 
     # Texture data
+
     if textured:
         header['textures'] = [{
             'sampler': 0,
