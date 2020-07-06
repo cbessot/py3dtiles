@@ -69,7 +69,7 @@ def create_tile_content(cursor, cityobjects, objects_type):
                           0, 0, -1, 0,
                           0, 1,  0, 0,
                           0, 0,  0, 1])
-    gltf = GlTF.from_binary_arrays(arrays, transform, textureUri='./bleue.jpg')
+    gltf = GlTF.from_binary_arrays(arrays, transform, textureUri='./test.png')
 
     # Create a batch table and add the database ID of each building to it
     bt = BatchTable()
@@ -105,7 +105,7 @@ def from_3dcitydb(cursor, objects_type):
 
     # Lump out objects in pre_tiles based on a 2D-Tree technique:
 
-    pre_tiles = kd_tree(cityobjects, 1)
+    pre_tiles = kd_tree(cityobjects, 50)
 
     tileset = TileSet()
     for tile_cityobjects in pre_tiles:

@@ -5,6 +5,7 @@ import struct
 from PIL import Image, ImageDraw
 from io import BytesIO
 from py3dtiles import BoundingVolumeBox, TriangleSoup
+from atlas import Rectangle, Node
 import math
 from math import *
 
@@ -242,12 +243,14 @@ class CityMCityObjects:
 
         # Deal with the reordering of the retrieved geometries
         city_objects_with_gmlid_key = dict()
+        textures_with_building_id_key = dict()
         inc = 0
         for t in cursor.fetchall():
             city_object_root_id = t[0]
             geom_as_string = t[1]
             uv_as_string = t[2]
             array = []
+            texture_uri = t[3]
             array.append(uv_as_string)
             if geom_as_string is None:
                 # Some thematic surface may have no geometry (due to a cityGML
@@ -255,31 +258,38 @@ class CityMCityObjects:
                 print("Warning: no valid geometry in database.")
                 sys.exit(1)
             geom = TriangleSoup.from_wkb_multipolygon(geom_as_string, array)
-            geom.triangles.append(t[3])
+            geom.triangles.append(texture_uri)
+            #print(geom.triangles[2])
             uvs = geom.triangles[1]
-            
-            #Us = tab_u(uvs)
-            #Vs = tab_v(uvs)
-            #minimum_u = np.min(Us)
-            #minimum_v = np.min(Vs)
-            #maximum_u = np.max(Us)
-            #maximum_v = np.max(Vs)
 
+            #dataBinary to png
             forkImage = imageConvert(geom.triangles[2], objects_type, cursor)
+            #print(forkImage)
+
+            #Size of texture and surface
             (width , height) = forkImage.size
             surface = width * height
             surfaceAtlas+=surface
             inc+=1
+
+            #dict with building_id and texture associated
+            textures_with_building_id_key[city_object_root_id] = forkImage
 
             if len(geom.triangles[0]) == 0:
                 print("Warning: empty (no) geometry from the database.")
                 sys.exit(1)
             city_objects_with_gmlid_key[city_object_root_id] = geom
 
-        #sizeOfAtlas = ceil(math.sqrt(surfaceAtlas))
-        #img = Image.new('RGB', (sizeOfAtlas, sizeOfAtlas), color = 'black')
+        #Big black image | starter of the atlas
+        sizeOfAtlas = ceil(math.sqrt(surfaceAtlas))
+        img = Image.new('RGB', (sizeOfAtlas, sizeOfAtlas), color = 'black')
+        img.save('textures_extract/texture_ATLAS_TEST.png' )
 
-        #img.save('textures_extract/texture_ATLAS_TEST.png' )
+        rect = Rectangle(0,0,sizeOfAtlas,sizeOfAtlas)
+        node_root = Node(rect)
+        for id in city_object_ids :
+            print(type(node_root))
+            #node_root = node_root.insert(textures_with_building_id_key[id])
 
 
         # Package the geometries within a data structure that the
@@ -317,12 +327,3 @@ def tab_v(tab):
         for y in i:
             tab_v.append(y[1])
     return tab_v
-
-def UvAttributeToArray(tuile):
-    array = []
-    for batiments in tuile:
-        for geom in batiments:
-            for uvs in geom:
-                array.append(uvs[0])
-                array.append(uvs[1])
-    return (b''.join(array))
