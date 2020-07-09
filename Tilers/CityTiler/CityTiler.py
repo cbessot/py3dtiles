@@ -54,7 +54,7 @@ def create_tile_content(cursor, cityobjects, objects_type):
     cityobject_ids = tuple([cityobject.get_database_id() for cityobject in cityobjects])
     offset = cityobjects.get_centroid()
 
-    arrays = CityMCityObjects.retrieve_geometries(cursor, cityobject_ids, offset, objects_type)
+    arrays, textureName = CityMCityObjects.retrieve_geometries(cursor, cityobject_ids, offset, objects_type)
 
     # GlTF uses a y-up coordinate system whereas the geographical data (stored
     # in the 3DCityDB database) uses a z-up coordinate system convention. In
@@ -69,7 +69,7 @@ def create_tile_content(cursor, cityobjects, objects_type):
                           0, 0, -1, 0,
                           0, 1,  0, 0,
                           0, 0,  0, 1])
-    gltf = GlTF.from_binary_arrays(arrays, transform, textureUri='./test.png')
+    gltf = GlTF.from_binary_arrays(arrays, transform, textureUri='./ATLAS_' + str(textureName) + '.png')
 
     # Create a batch table and add the database ID of each building to it
     bt = BatchTable()
@@ -105,8 +105,8 @@ def from_3dcitydb(cursor, objects_type):
 
     # Lump out objects in pre_tiles based on a 2D-Tree technique:
 
-    pre_tiles = kd_tree(cityobjects, 50)
-
+    pre_tiles = kd_tree(cityobjects, 10)
+    i = 0
     tileset = TileSet()
     for tile_cityobjects in pre_tiles:
         tile = Tile()
@@ -155,6 +155,9 @@ def from_3dcitydb(cursor, objects_type):
 
         # Eventually we can add the newly build tile to the tile set:
         tileset.add_tile(tile)
+        if i == 20:
+            break
+        i+=1
 
     # Note: we don't need to explicitly adapt the TileSet's root tile
     # bounding volume, because TileSet::write_to_directory() already

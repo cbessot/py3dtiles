@@ -17,7 +17,7 @@ class Rectangle(object):
 
         self.width = right - left
 
-        self.height = top - bottom
+        self.height = bottom - top
 
     def get_top(self):
 
@@ -45,20 +45,17 @@ class Rectangle(object):
     def fits(self,img):
 
         width, height = img.size
-
-        if (width < self.width and height < self.height) :
+        if (width <= (self.width) and (height <= self.height)) :
             return True
-        else : return False
-        #comparer les tailles, et ressortir true or not
+        else :
+            return False
 
     def perfect_fits(self,img):
 
         width, height = img.size
-
         if (width == self.get_width() and height == self.get_height()):
             return True
         else : return False
-        #return si les tailles sont exactements pareils
 
 class Node(object):
 
@@ -76,40 +73,80 @@ class Node(object):
 
         return (self.child[0] == None and self.child[1] == None)
 
+    def insertImages(self, atlas , geom):
 
-    def insert(self, img):
+        if self.isLeaf():
 
-        if self.isLeaf() == False :
-            newNode = self.child[0].insert(self.image)
+            if self.image != None :
+                print(self.image.size)
+                atlas.paste(self.image, (self.rect.get_left(), self.rect.get_top()))
+                self.updateUv(geom[self.building_id].triangles[1], self.image, atlas)
+        else :
+            self.child[0].insertImages(atlas, geom)
+            self.child[1].insertImages(atlas, geom)
+
+
+    def updateUv(self, uvs, oldTexture, newTexture):
+
+        oldWidth, oldHeight= (oldTexture.size)
+        newWidth, newHeight= (newTexture.size)
+
+        ratioWidth = oldWidth/newWidth
+        ratioHeight = oldHeight/newHeight
+
+        offsetWidth = (self.rect.get_left()/newWidth)
+        offsetHeight = (self.rect.get_top()/newHeight)
+
+        for i in range(0,len(uvs)):
+
+            for y in range(0,3):
+                new_u = ((uvs[i][y][0] * oldWidth) / newWidth) + offsetWidth
+                new_v = ((uvs[i][y][1] * oldHeight) / newHeight) + offsetHeight
+                uvs[i][y] = np.array([new_u, new_v], dtype=np.float32)
+
+
+    def insert(self, img, building_id):
+
+        if self.isLeaf()==False:
+            newNode = self.child[0].insert(img, building_id)
 
             if newNode != None :
-                return newNode
-
-            return self.child[1].insert( self.image )
+                self.child[0] = newNode
+                return self
+            else:
+                newNode = self.child[1].insert(img, building_id)
+                if newNode != None:
+                    self.child[1] = newNode
+                    return self
+                else:
+                    return None
 
         else :
-            if self.image == None:
+            if self.image != None:
                 return  None
 
-            if self.fits(rect, self.image) == false :
-             return None
+            if self.rect.perfect_fits(img) == True :
+                self.building_id = building_id
+                self.image = img
+                return self
 
-             if self.perfect_fits(rect, self.image) == True :
-                 return self
+            if self.rect.fits(img) == False :
+                return None
 
             self.child[0] = Node()
             self.child[1] = Node()
 
-            width, height = self.image.size
+            width, height = img.size
 
             dw = self.rect.get_width() - width
             dh = self.rect.get_height() - height
 
             if dw > dh :
-                self.child[0].rect = Rectangle(self.rect.get_left(), self.rect.get_top(), self.rect.get_left() + (self.rect.get_width() - 1), self.rect.get_bottom())
-                self.child[1].rect = Rectangle(self.rect.get_left() + self.rect.get_width(), self.rect.get_top() , self.rect.get_right(), self.rect.get_bottom())
-            else:
-                self.child[0].rect = Rectangle(self.rect.get_left(), self.rect.get_top(), self.rect.get_right(), self.rect.get_top() + (self.rect.get_height() - 1))
-                self.child[1].rect = Rectangle(self.rect.get_left(), self.rect.get_top() + self.rect.get_height(), self.rect.get_right(), self.rect.get_bottom())
+                self.child[0].rect = Rectangle(self.rect.get_left(),self.rect.get_top(),self.rect.get_left() + width, self.rect.get_bottom())
+                self.child[1].rect = Rectangle(self.rect.get_left() + width + 1, self.rect.get_top() ,self.rect.get_right(), self.rect.get_bottom())
+            if dw < dh:
+                self.child[0].rect = Rectangle(self.rect.get_left(), self.rect.get_top(), self.rect.get_right(), self.rect.get_top() + height)
+                self.child[1].rect = Rectangle(self.rect.get_left(), self.rect.get_top() + height + 1, self.rect.get_right(), self.rect.get_bottom())
 
-            return self.insert(self.image, self.child[0])
+            self.child[0].insert(img, building_id)
+            return self

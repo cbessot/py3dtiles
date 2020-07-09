@@ -224,7 +224,7 @@ class CityMCityObjects:
 
 
     @staticmethod
-    def retrieve_geometries(cursor, city_object_ids, offset, objects_type, surfaceAtlas=0):
+    def retrieve_geometries(cursor, city_object_ids, offset, objects_type):
         """
         :param cursor: a database access cursor
         :param city_object_ids: a list of (city)gml identifier corresponding to
@@ -240,12 +240,15 @@ class CityMCityObjects:
 
         cursor.execute(objects_type.sql_query_geometries(offset,
                                                          city_object_ids_arg))
+        print(city_object_ids_arg)
 
         # Deal with the reordering of the retrieved geometries
         city_objects_with_gmlid_key = dict()
         textures_with_building_id_key = dict()
-        inc = 0
+        tab_textures_id = []
+        surfaceTotal = 0
         for t in cursor.fetchall():
+            tab_textures_id_batiments = []
             city_object_root_id = t[0]
             geom_as_string = t[1]
             uv_as_string = t[2]
@@ -259,18 +262,15 @@ class CityMCityObjects:
                 sys.exit(1)
             geom = TriangleSoup.from_wkb_multipolygon(geom_as_string, array)
             geom.triangles.append(texture_uri)
-            #print(geom.triangles[2])
             uvs = geom.triangles[1]
 
             #dataBinary to png
             forkImage = imageConvert(geom.triangles[2], objects_type, cursor)
-            #print(forkImage)
 
             #Size of texture and surface
             (width , height) = forkImage.size
             surface = width * height
-            surfaceAtlas+=surface
-            inc+=1
+            surfaceTotal+=surface
 
             #dict with building_id and texture associated
             textures_with_building_id_key[city_object_root_id] = forkImage
@@ -280,21 +280,25 @@ class CityMCityObjects:
                 sys.exit(1)
             city_objects_with_gmlid_key[city_object_root_id] = geom
 
+        atlasTri = sorted(textures_with_building_id_key.items(), key=lambda t: findSurface(t[1].size), reverse=True)
+
         #Big black image | starter of the atlas
-        sizeOfAtlas = ceil(math.sqrt(surfaceAtlas))
-        img = Image.new('RGB', (sizeOfAtlas, sizeOfAtlas), color = 'black')
-        img.save('textures_extract/texture_ATLAS_TEST.png' )
+        sizeOfAtlas = multipleDeDeux(np.sqrt(surfaceTotal))
+        atlas = Image.new('RGB', (sizeOfAtlas , sizeOfAtlas), color = 'black')
 
-        rect = Rectangle(0,0,sizeOfAtlas,sizeOfAtlas)
+        #img.save('textures_extract/texture_ATLAS_TEST.png' )
+        rect = Rectangle(0,0,sizeOfAtlas, sizeOfAtlas)
         node_root = Node(rect)
-        for id in city_object_ids :
-            print(type(node_root))
-            #node_root = node_root.insert(textures_with_building_id_key[id])
 
+        for key, image in atlasTri:
+            node_root = node_root.insert(image, key)
+        node_root.insertImages(atlas, city_objects_with_gmlid_key)
+
+
+        atlas.save('junk_buildings/tiles/ATLAS_' + str(key) + '.png')
 
         # Package the geometries within a data structure that the
         # GlTF.from_binary_arrays() function (see below) expects to consume:
-        print(inc)
         arrays = []
         for incoming_id in city_object_ids:
             geom = city_objects_with_gmlid_key[incoming_id]
@@ -305,7 +309,11 @@ class CityMCityObjects:
                 'bbox': [[float(i) for i in j] for j in geom.getBbox()],
                 'uv': geom.getDataArray(0)
             })
-        return arrays
+        return arrays, key
+
+def findSurface(size):
+    width, height = size
+    return width * height
 
 def imageConvert(textureUri, objects_type, cursor):
     imageBinaryData = objects_type.retrieve_textures(cursor, textureUri, objects_type)
@@ -314,16 +322,8 @@ def imageConvert(textureUri, objects_type, cursor):
     image = Image.open(stream).convert("RGBA")
     return image
 
-def tab_u(tab):
-    tab_u = []
-    for i in tab:
-        for y in i:
-            tab_u.append(y[0])
-    return tab_u
-
-def tab_v(tab):
-    tab_v = []
-    for i in tab:
-        for y in i:
-            tab_v.append(y[1])
-    return tab_v
+def multipleDeDeux(nb):
+    i = 1
+    while i < nb :
+        i*=2
+    return i
