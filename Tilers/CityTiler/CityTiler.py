@@ -155,7 +155,6 @@ def from_3dcitydb(cursor, objects_type):
 
         # Eventually we can add the newly build tile to the tile set:
         tileset.add_tile(tile)
-        print(str(i))
         if i == 15 :
             break
         i+=1

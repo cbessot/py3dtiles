@@ -70,7 +70,7 @@ class CityMBuildings(CityMCityObjects):
                     "AND building.id=building.building_root_id"
 
         return query
-        
+
     @staticmethod
     def sql_query_textures(image_uri):
         """
@@ -84,9 +84,9 @@ class CityMBuildings(CityMCityObjects):
         query = \
             "SELECT tex_image_data FROM tex_image WHERE tex_image_uri = '" + image_uri + "' "
         return query
-        
+
     @staticmethod
-    def sql_query_geometries(offset, buildings):
+    def sql_query_geometries_with_texture_coordinates(offset, buildings):
         """
         :param offset: the offset (a 3D "vector" of floats) by which the
                        geographical coordinates should be translated (the
@@ -115,4 +115,32 @@ class CityMBuildings(CityMCityObjects):
             "JOIN tex_image ON surface_data.tex_image_id=tex_image.id "
             "WHERE building.building_root_id IN " + buildings + " "
             "GROUP BY building.building_root_id, tex_image_uri")
+        return query
+
+    @staticmethod
+    def sql_query_geometries(offset, buildings_ids_arg):
+        """
+        :param offset: the offset (a 3D "vector" of floats) by which the
+                       geographical coordinates should be translated (the
+                       computation is done at the GIS level).
+        :param buildings_ids_arg: a formatted list of (city)gml identifier corresponding to
+                            objects_type type objects whose geometries are sought.
+        :return: a string containing the right SQL query that should be executed.
+        """
+        # Because the 3DCityDB's Building table regroups both the buildings mixed
+        # with their building's sub-divisions (Building is an "abstraction"
+        # from which inherits concrete building class as well building-subdivisions
+        # a.k.a. parts) we must first collect all the buildings and their parts:
+
+        query = \
+            "SELECT building.building_root_id, ST_AsBinary(ST_Multi(ST_Collect( " + \
+            "ST_Translate(surface_geometry.geometry, " + \
+            str(-offset[0]) + ", " + str(-offset[1]) + ", " + str(-offset[2]) + \
+            ")))) " + \
+            "FROM surface_geometry JOIN thematic_surface " + \
+            "ON surface_geometry.root_id=thematic_surface.lod2_multi_surface_id " + \
+            "JOIN building ON thematic_surface.building_id = building.id " + \
+            "WHERE building.building_root_id IN " + buildings_ids_arg + " " + \
+            "GROUP BY building.building_root_id "
+
         return query

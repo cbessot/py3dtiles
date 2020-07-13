@@ -8,47 +8,35 @@ class Rectangle(object):
     def __init__(self, left, top, right, bottom):
 
         self.left = left
-
         self.right = right
-
         self.top = top
-
         self.bottom = bottom
-
         self.width = right - left
-
         self.height = bottom - top
 
     def setSize(self, newWidth, newHeight):
-
         self.width = newWidth
         self.height = newHeight
 
     def get_top(self):
-
         return self.top
 
     def get_bottom(self):
-
         return self.bottom
 
     def get_right(self):
-
         return self.right
 
     def get_left(self):
         return self.left
 
     def get_width(self):
-
         return self.width
 
     def get_height(self):
-
         return self.height
 
     def fits(self,img):
-
         width, height = img.size
         if (width <= (self.width) and (height <= self.height)) :
             return True
@@ -56,7 +44,6 @@ class Rectangle(object):
             return False
 
     def perfect_fits(self,img):
-
         width, height = img.size
         if (width == self.get_width() and height == self.get_height()):
             return True
@@ -65,21 +52,15 @@ class Rectangle(object):
 class Node(object):
 
     def __init__(self,rect = None):
-
         self.rect = rect
-
         self.child = [None,None]
-
         self.image = None
-
         self.building_id = None
 
     def isLeaf(self):
-
         return (self.child[0] == None and self.child[1] == None)
 
     def insertImages(self, atlas , geom):
-
         if self.isLeaf():
 
             if self.image != None :
@@ -91,7 +72,6 @@ class Node(object):
 
 
     def updateUv(self, uvs, oldTexture, newTexture):
-
         oldWidth, oldHeight= (oldTexture.size)
         newWidth, newHeight= (newTexture.size)
 
@@ -109,9 +89,7 @@ class Node(object):
                 #warning : don't forget to convert to float32
                 uvs[i][y] = np.array([new_u, new_v], dtype=np.float32)
 
-
     def insert(self, img, building_id):
-
         if self.isLeaf()==False:
             newNode = self.child[0].insert(img, building_id)
 

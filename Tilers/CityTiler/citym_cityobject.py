@@ -6,8 +6,6 @@ from PIL import Image, ImageDraw
 from io import BytesIO
 from py3dtiles import BoundingVolumeBox, TriangleSoup
 from atlas import Rectangle, Node
-import math
-from math import *
 
 
 class CityMCityObject(object):
@@ -238,7 +236,7 @@ class CityMCityObjects:
         """
         city_object_ids_arg = str(city_object_ids).replace(',)', ')')
 
-        cursor.execute(objects_type.sql_query_geometries(offset,
+        cursor.execute(objects_type.sql_query_geometries_with_texture_coordinates(offset,
                                                          city_object_ids_arg))
 
 
