@@ -105,7 +105,7 @@ def from_3dcitydb(cursor, objects_type):
 
     # Lump out objects in pre_tiles based on a 2D-Tree technique:
 
-    pre_tiles = kd_tree(cityobjects, 10)
+    pre_tiles = kd_tree(cityobjects, 50)
     i = 0
     tileset = TileSet()
     for tile_cityobjects in pre_tiles:
@@ -155,10 +155,10 @@ def from_3dcitydb(cursor, objects_type):
 
         # Eventually we can add the newly build tile to the tile set:
         tileset.add_tile(tile)
-        if i == 20:
+        print(str(i))
+        if i == 15 :
             break
         i+=1
-
     # Note: we don't need to explicitly adapt the TileSet's root tile
     # bounding volume, because TileSet::write_to_directory() already
     # takes care of this synchronisation.

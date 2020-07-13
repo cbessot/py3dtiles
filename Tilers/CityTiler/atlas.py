@@ -19,6 +19,11 @@ class Rectangle(object):
 
         self.height = bottom - top
 
+    def setSize(self, newWidth, newHeight):
+
+        self.width = newWidth
+        self.height = newHeight
+
     def get_top(self):
 
         return self.top
@@ -78,7 +83,6 @@ class Node(object):
         if self.isLeaf():
 
             if self.image != None :
-                print(self.image.size)
                 atlas.paste(self.image, (self.rect.get_left(), self.rect.get_top()))
                 self.updateUv(geom[self.building_id].triangles[1], self.image, atlas)
         else :
@@ -102,6 +106,7 @@ class Node(object):
             for y in range(0,3):
                 new_u = ((uvs[i][y][0] * oldWidth) / newWidth) + offsetWidth
                 new_v = ((uvs[i][y][1] * oldHeight) / newHeight) + offsetHeight
+                #warning : don't forget to convert to float32
                 uvs[i][y] = np.array([new_u, new_v], dtype=np.float32)
 
 

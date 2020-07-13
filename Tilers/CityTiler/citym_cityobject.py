@@ -216,7 +216,7 @@ class CityMCityObjects:
         :rtype List[Dict]: a TileContent in the form a B3dm.
         """
         res = []
-        #city_object_ids_arg = str(image_uri).replace(',)', ')')
+        city_object_ids_arg = str(image_uri).replace(',)', ')')
         cursor.execute(objects_type.sql_query_textures(image_uri))
         for t in cursor.fetchall():
             res.append(t)
@@ -240,12 +240,11 @@ class CityMCityObjects:
 
         cursor.execute(objects_type.sql_query_geometries(offset,
                                                          city_object_ids_arg))
-        print(city_object_ids_arg)
+
 
         # Deal with the reordering of the retrieved geometries
         city_objects_with_gmlid_key = dict()
         textures_with_building_id_key = dict()
-        tab_textures_id = []
         surfaceTotal = 0
         for t in cursor.fetchall():
             tab_textures_id_batiments = []
@@ -256,7 +255,7 @@ class CityMCityObjects:
             texture_uri = t[3]
             array.append(uv_as_string)
             if geom_as_string is None:
-                # Some thematic surface may have no geometry (due to a cityGML
+                # Some thematic surface mimageConvertay have no geometry (due to a cityGML
                 # exporter bug?): simply ignore them.
                 print("Warning: no valid geometry in database.")
                 sys.exit(1)
@@ -265,7 +264,7 @@ class CityMCityObjects:
             uvs = geom.triangles[1]
 
             #dataBinary to png
-            forkImage = imageConvert(geom.triangles[2], objects_type, cursor)
+            forkImage = imageConvertToPng(geom.triangles[2], objects_type, cursor)
 
             #Size of texture and surface
             (width , height) = forkImage.size
@@ -280,21 +279,22 @@ class CityMCityObjects:
                 sys.exit(1)
             city_objects_with_gmlid_key[city_object_root_id] = geom
 
-        atlasTri = sorted(textures_with_building_id_key.items(), key=lambda t: findSurface(t[1].size), reverse=True)
+        sorted_atlas = sorted(textures_with_building_id_key.items(), key=lambda t: calculationSurface(t[1].size), reverse=True)
+        sizeOfAtlas = multipleOf2(np.sqrt(surfaceTotal))
+        rect = Rectangle(0,0,sizeOfAtlas,sizeOfAtlas)
+        node_root = None
+        while node_root == None :
+            node_root = Node(rect)
+            for key, image in sorted_atlas:
+                node_root = node_root.insert(image,key)
+                if node_root == None:
+                    rect = Rectangle(0,0,rect.get_width() * 2, rect.get_height() * 2)
+                    break
 
-        #Big black image | starter of the atlas
-        sizeOfAtlas = multipleDeDeux(np.sqrt(surfaceTotal))
-        atlas = Image.new('RGB', (sizeOfAtlas , sizeOfAtlas), color = 'black')
+        #empty image which will be the basis of the atlas | it is the size of the rectangle
+        atlas = Image.new('RGB', (node_root.rect.get_width(), node_root.rect.get_width()), color = 'black')
 
-        #img.save('textures_extract/texture_ATLAS_TEST.png' )
-        rect = Rectangle(0,0,sizeOfAtlas, sizeOfAtlas)
-        node_root = Node(rect)
-
-        for key, image in atlasTri:
-            node_root = node_root.insert(image, key)
         node_root.insertImages(atlas, city_objects_with_gmlid_key)
-
-
         atlas.save('junk_buildings/tiles/ATLAS_' + str(key) + '.png')
 
         # Package the geometries within a data structure that the
@@ -302,7 +302,6 @@ class CityMCityObjects:
         arrays = []
         for incoming_id in city_object_ids:
             geom = city_objects_with_gmlid_key[incoming_id]
-            #uv = city_objects_uvs_with_gmlid_key[incoming_id]
             arrays.append({
                 'position': geom.getPositionArray(),
                 'normal': geom.getNormalArray(),
@@ -311,18 +310,18 @@ class CityMCityObjects:
             })
         return arrays, key
 
-def findSurface(size):
+def calculationSurface(size):
     width, height = size
     return width * height
 
-def imageConvert(textureUri, objects_type, cursor):
+def imageConvertToPng(textureUri, objects_type, cursor):
     imageBinaryData = objects_type.retrieve_textures(cursor, textureUri, objects_type)
     LEFT_THUMB = imageBinaryData[0][0]
     stream = BytesIO(LEFT_THUMB)
     image = Image.open(stream).convert("RGBA")
     return image
 
-def multipleDeDeux(nb):
+def multipleOf2(nb):
     i = 1
     while i < nb :
         i*=2
