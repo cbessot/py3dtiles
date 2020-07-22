@@ -1,10 +1,10 @@
 import sys
 import numpy as np
+from io import BytesIO
 from PIL import Image, ImageDraw
 from py3dtiles import BoundingVolumeBox, TriangleSoup
 
 class Rectangle(object):
-
     def __init__(self, left, top, right, bottom):
 
         self.left = left
@@ -20,20 +20,16 @@ class Rectangle(object):
         self.height = bottom - top
 
     def setSize(self, newWidth, newHeight):
-
         self.width = newWidth
         self.height = newHeight
 
     def get_top(self):
-
         return self.top
 
     def get_bottom(self):
-
         return self.bottom
 
     def get_right(self):
-
         return self.right
 
     def get_left(self):
@@ -48,24 +44,15 @@ class Rectangle(object):
         return self.height
 
     def fits(self,img):
-
         width, height = img.size
-        if (width <= (self.width) and (height <= self.height)) :
-            return True
-        else :
-            return False
+        return (width <= (self.width) and (height <= self.height))
 
     def perfect_fits(self,img):
-
         width, height = img.size
-        if (width == self.get_width() and height == self.get_height()):
-            return True
-        else : return False
+        return (width == self.get_width() and height == self.get_height())
 
 class Node(object):
-
     def __init__(self,rect = None):
-
         self.rect = rect
 
         self.child = [None,None]
@@ -75,13 +62,10 @@ class Node(object):
         self.building_id = None
 
     def isLeaf(self):
-
         return (self.child[0] == None and self.child[1] == None)
 
     def insertImages(self, atlas , geom):
-
         if self.isLeaf():
-
             if self.image != None :
                 atlas.paste(self.image, (self.rect.get_left(), self.rect.get_top()))
                 self.updateUv(geom[self.building_id].triangles[1], self.image, atlas)
@@ -91,7 +75,6 @@ class Node(object):
 
 
     def updateUv(self, uvs, oldTexture, newTexture):
-
         oldWidth, oldHeight= (oldTexture.size)
         newWidth, newHeight= (newTexture.size)
 
@@ -102,10 +85,9 @@ class Node(object):
         offsetHeight = (self.rect.get_top()/newHeight)
 
         for i in range(0,len(uvs)):
-
             for y in range(0,3):
-                new_u = ((uvs[i][y][0] * oldWidth) / newWidth) + offsetWidth
-                new_v = ((uvs[i][y][1] * oldHeight) / newHeight) + offsetHeight
+                new_u = (uvs[i][y][0] * ratioWidth) + offsetWidth
+                new_v = (uvs[i][y][1] * ratioHeight) + offsetHeight
                 #warning : don't forget to convert to float32
                 uvs[i][y] = np.array([new_u, new_v], dtype=np.float32)
 
@@ -128,7 +110,7 @@ class Node(object):
 
         else :
             if self.image != None:
-                return  None
+                return None
 
             if self.rect.perfect_fits(img) == True :
                 self.building_id = building_id
@@ -146,7 +128,7 @@ class Node(object):
             dw = self.rect.get_width() - width
             dh = self.rect.get_height() - height
 
-            if dw > dh :
+            if dw >= dh :
                 self.child[0].rect = Rectangle(self.rect.get_left(),self.rect.get_top(),self.rect.get_left() + width, self.rect.get_bottom())
                 self.child[1].rect = Rectangle(self.rect.get_left() + width + 1, self.rect.get_top() ,self.rect.get_right(), self.rect.get_bottom())
             if dw < dh:
@@ -155,3 +137,21 @@ class Node(object):
 
             self.child[0].insert(img, building_id)
             return self
+
+
+def calculationSurface(size):
+    width, height = size
+    return width * height
+
+def imageConvertToPng(textureUri, objects_type, cursor):
+    imageBinaryData = objects_type.retrieve_textures(cursor, textureUri, objects_type)
+    LEFT_THUMB = imageBinaryData[0][0]
+    stream = BytesIO(LEFT_THUMB)
+    image = Image.open(stream).convert("RGBA")
+    return image
+
+def multipleOf2(nb):
+    i = 1
+    while i < nb :
+        i*=2
+    return i
