@@ -1,6 +1,8 @@
 import argparse
 import numpy as np
-
+import os
+import pathlib
+import sys
 from py3dtiles import B3dm, BatchTable, BoundingVolumeBox, GlTF
 from py3dtiles import Tile, TileSet
 
@@ -90,7 +92,7 @@ def create_tile_content(cursor, cityobjects, objects_type):
     return B3dm.from_glTF(gltf, bt)
 
 
-def from_3dcitydb(cursor, objects_type):
+def from_3dcitydb(cursor, objects_type, maxNumberOfTiles = 500):
     """
     :param cursor: a database access cursor.
     :param objects_type: a class name among CityMCityObject derived classes.
@@ -105,8 +107,8 @@ def from_3dcitydb(cursor, objects_type):
 
     # Lump out objects in pre_tiles based on a 2D-Tree technique:
 
-    pre_tiles = kd_tree(cityobjects, 50)
-    i = 0
+    pre_tiles = kd_tree(cityobjects, 1000)
+    
     tileset = TileSet()
     for tile_cityobjects in pre_tiles:
         tile = Tile()
@@ -155,10 +157,10 @@ def from_3dcitydb(cursor, objects_type):
 
         # Eventually we can add the newly build tile to the tile set:
         tileset.add_tile(tile)
-        print(str(i))
-        if i == 15 :
+
+        if (maxNumberOfTiles <= 0):
             break
-        i+=1
+        maxNumberOfTiles-=1
     # Note: we don't need to explicitly adapt the TileSet's root tile
     # bounding volume, because TileSet::write_to_directory() already
     # takes care of this synchronisation.
@@ -176,6 +178,12 @@ def from_3dcitydb(cursor, objects_type):
 
     return tileset
 
+def create_directory(directory):
+    target_dir = pathlib.Path(directory).expanduser()
+    pathlib.Path(target_dir).mkdir(parents=True, exist_ok=True)
+    target_dir = pathlib.Path(directory+'/tiles').expanduser()
+    pathlib.Path(target_dir).mkdir(parents=True, exist_ok=True)
+
 
 def main():
     """
@@ -189,6 +197,7 @@ def main():
 
     if args.object_type == "building":
         objects_type = CityMBuildings
+        create_directory('junk_buildings')
         if args.with_BTH:
             CityMBuildings.set_bth()
     elif args.object_type == "relief":
