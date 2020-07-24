@@ -236,7 +236,7 @@ class CityMCityObjects:
         """
         city_object_ids_arg = str(city_object_ids).replace(',)', ')')
 
-        cursor.execute(objects_type.sql_query_geometries(offset,
+        cursor.execute(objects_type.sql_query_geometries_with_texture_coordinates(offset,
                                                          city_object_ids_arg))
 
 

@@ -16,15 +16,10 @@ class Rectangle(object):
     """
     def __init__(self, left, top, right, bottom):
         self.left = left
-
         self.right = right
-
         self.top = top
-
         self.bottom = bottom
-
         self.width = right - left
-
         self.height = bottom - top
 
     def setSize(self, newWidth, newHeight):
@@ -74,11 +69,8 @@ class Node(object):
     """
     def __init__(self,rect = None):
         self.rect = rect
-
         self.child = [None,None]
-
         self.image = None
-
         self.building_id = None
 
     def isLeaf(self):
