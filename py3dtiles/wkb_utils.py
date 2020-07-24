@@ -292,6 +292,12 @@ def triangulate(polygon, additionalPolygons=[]):
 def unflatten(array, lengths, index):
     for i in reversed(range(0, len(lengths))):
         lgth = lengths[i]
-        if index >= lgth:
-            return array[i + 1][index - lgth]
-    return array[0][index]
+        if (index >= lgth):
+            if (index - lgth) < len(array[i + 1]) - 1:
+                return array[i + 1][index - lgth]
+            else:
+                return array[i + 1][len(array[i + 1])-1]
+    if(index < len(array[0])):
+        return array[0][index]
+    else:
+        return array[0][len(array[0])-1]
