@@ -3,11 +3,10 @@ import sys
 import numpy as np
 import struct
 from PIL import Image, ImageDraw
-from io import BytesIO
 from py3dtiles import BoundingVolumeBox, TriangleSoup
-from atlas import Rectangle, Node
-import math
-from math import *
+from atlas import *
+
+
 
 
 class CityMCityObject(object):
@@ -216,7 +215,6 @@ class CityMCityObjects:
         :rtype List[Dict]: a TileContent in the form a B3dm.
         """
         res = []
-        city_object_ids_arg = str(image_uri).replace(',)', ')')
         cursor.execute(objects_type.sql_query_textures(image_uri))
         for t in cursor.fetchall():
             res.append(t)
@@ -224,7 +222,7 @@ class CityMCityObjects:
 
 
     @staticmethod
-    def retrieve_geometries(cursor, city_object_ids, offset, objects_type):
+    def retrieve_geometries(cursor, city_object_ids, offset, objects_type, tile_number = 0):
         """
         :param cursor: a database access cursor
         :param city_object_ids: a list of (city)gml identifier corresponding to
@@ -245,58 +243,46 @@ class CityMCityObjects:
         # Deal with the reordering of the retrieved geometries
         city_objects_with_gmlid_key = dict()
         textures_with_building_id_key = dict()
-        surfaceTotal = 0
+        
         for t in cursor.fetchall():
-            tab_textures_id_batiments = []
             city_object_root_id = t[0]
             geom_as_string = t[1]
             uv_as_string = t[2]
-            array = []
             texture_uri = t[3]
-            array.append(uv_as_string)
+
             if geom_as_string is None:
-                # Some thematic surface mimageConvertay have no geometry (due to a cityGML
-                # exporter bug?): simply ignore them.
+                # Some thematic surface mimageConvertay have no geometry 
+                # (due to a cityGML exporter bug?): simply ignore them.
                 print("Warning: no valid geometry in database.")
                 sys.exit(1)
-            geom = TriangleSoup.from_wkb_multipolygon(geom_as_string, array)
-            geom.triangles.append(texture_uri)
-            uvs = geom.triangles[1]
-
-            #dataBinary to png
-            forkImage = imageConvertToPng(geom.triangles[2], objects_type, cursor)
-
-            #Size of texture and surface
-            (width , height) = forkImage.size
-            surface = width * height
-            surfaceTotal+=surface
-
-            #dict with building_id and texture associated
-            textures_with_building_id_key[city_object_root_id] = forkImage
-
+            
+            # The uvs must be wrapped in a array associated to the geom
+            associated_data = [uv_as_string]
+            geom = TriangleSoup.from_wkb_multipolygon(geom_as_string, 
+                                                        associated_data)
+            
             if len(geom.triangles[0]) == 0:
                 print("Warning: empty (no) geometry from the database.")
                 sys.exit(1)
             city_objects_with_gmlid_key[city_object_root_id] = geom
+            
+            # Add the texture linked to the geometry
+            geom.triangles.append(texture_uri)
 
-        sorted_atlas = sorted(textures_with_building_id_key.items(), key=lambda t: calculationSurface(t[1].size), reverse=True)
-        sizeOfAtlas = multipleOf2(np.sqrt(surfaceTotal))
-        rect = Rectangle(0,0,sizeOfAtlas,sizeOfAtlas)
-        node_root = None
-        while node_root == None :
-            node_root = Node(rect)
-            for key, image in sorted_atlas:
-                node_root = node_root.insert(image,key)
-                if node_root == None:
-                    rect = Rectangle(0,0,rect.get_width() * 2, rect.get_height() * 2)
-                    break
+            # Fetch the texture using its uri, and convert it to pillow images
+            texture = getTexture(geom.triangles[2], objects_type, cursor)
 
-        #empty image which will be the basis of the atlas | it is the size of the rectangle
-        atlas = Image.new('RGB', (node_root.rect.get_width(), node_root.rect.get_width()), color = 'black')
+            # dict with building_id and texture associated
+            textures_with_building_id_key[city_object_root_id] = texture
 
-        node_root.insertImages(atlas, city_objects_with_gmlid_key)
-        atlas.save('junk_buildings/tiles/ATLAS_' + str(key) + '.png')
+        # Sort textures by size, starting by the biggest one
+        textures_sorted = sorted(textures_with_building_id_key.items(), 
+                            key=lambda t: computeArea(t[1].size), reverse=True)
 
+        atlasTree = computeAtlasTree(textures_sorted)       
+        
+        atlasTree.createAtlasImage(city_objects_with_gmlid_key,tile_number)
+        
         # Package the geometries within a data structure that the
         # GlTF.from_binary_arrays() function (see below) expects to consume:
         arrays = []
@@ -308,21 +294,6 @@ class CityMCityObjects:
                 'bbox': [[float(i) for i in j] for j in geom.getBbox()],
                 'uv': geom.getDataArray(0)
             })
-        return arrays, key
+        return arrays
 
-def calculationSurface(size):
-    width, height = size
-    return width * height
 
-def imageConvertToPng(textureUri, objects_type, cursor):
-    imageBinaryData = objects_type.retrieve_textures(cursor, textureUri, objects_type)
-    LEFT_THUMB = imageBinaryData[0][0]
-    stream = BytesIO(LEFT_THUMB)
-    image = Image.open(stream).convert("RGBA")
-    return image
-
-def multipleOf2(nb):
-    i = 1
-    while i < nb :
-        i*=2
-    return i

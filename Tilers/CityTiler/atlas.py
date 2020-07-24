@@ -136,22 +136,59 @@ class Node(object):
             dh = self.rect.get_height() - height
 
             if dw >= dh :
-                self.child[0].rect = Rectangle(self.rect.get_left(),self.rect.get_top(),self.rect.get_left() + width, self.rect.get_bottom())
-                self.child[1].rect = Rectangle(self.rect.get_left() + width + 1, self.rect.get_top() ,self.rect.get_right(), self.rect.get_bottom())
+                self.child[0].rect = Rectangle(
+                                            self.rect.get_left(),
+                                            self.rect.get_top(),
+                                            self.rect.get_left() + width,
+                                            self.rect.get_bottom())
+                self.child[1].rect = Rectangle(
+                                            self.rect.get_left() + width + 1,
+                                            self.rect.get_top(),
+                                            self.rect.get_right(),
+                                            self.rect.get_bottom())
             if dw < dh:
-                self.child[0].rect = Rectangle(self.rect.get_left(), self.rect.get_top(), self.rect.get_right(), self.rect.get_top() + height)
-                self.child[1].rect = Rectangle(self.rect.get_left(), self.rect.get_top() + height + 1, self.rect.get_right(), self.rect.get_bottom())
+                self.child[0].rect = Rectangle(
+                                            self.rect.get_left(),
+                                            self.rect.get_top(),
+                                            self.rect.get_right(),
+                                            self.rect.get_top() + height)
+                self.child[1].rect = Rectangle(
+                                            self.rect.get_left(),
+                                            self.rect.get_top() + height + 1,
+                                            self.rect.get_right(),
+                                            self.rect.get_bottom())
 
             # The first child is created in a way that the image always can be 
             # inserted in it. 
             self.child[0].insert(img, building_id)
             return self
 
-    def createAtlasImage(self, atlasImg, tileGeom):
+    def createAtlasImage(self, city_objects_with_gmlid_key, tile_number):
+        """
+        :param city_objects_with_gmlid_key: the geometry of the tile retrieved 
+                        from the database. 
+                        It is a dictionnary, with building_id as key, 
+                        and triangles as value. The triangles position must be 
+                        in triangles[0] and the UV must be in
+                        triangles[1]
+
+        :param tile_number: the tile number   
+        """
+        atlasImg = Image.new(
+            'RGB',
+            (self.rect.get_width(), self.rect.get_height()),
+            color = 'black')
+
+        self.fillAtlasImage(atlasImg,city_objects_with_gmlid_key)
+        atlasImg.save('junk_buildings/tiles/ATLAS_' + str(tile_number) + '.png')
+
+    def fillAtlasImage(self, atlasImg,city_objects_with_gmlid_key):
         """
         :param atlasImg: An empty pillow image that will be filled 
                         with each textures in the tree
-        :param tileGeom: the geometry of the tile retrieved from the database. 
+
+        :param city_objects_with_gmlid_key: the geometry of the tile retrieved 
+                        from the database. 
                         It is a dictionnary, with building_id as key, 
                         and triangles as value. The triangles position must be 
                         in triangles[0] and the UV must be in
@@ -159,18 +196,27 @@ class Node(object):
         """
         if self.isLeaf():
             if self.image != None :
-                atlasImg.paste(self.image, (self.rect.get_left(), self.rect.get_top()))
-                self.updateUv(tileGeom[self.building_id].triangles[1], self.image, atlasImg)
+                atlasImg.paste(
+                    self.image, 
+                    (self.rect.get_left(), self.rect.get_top())
+                    )
+
+                self.updateUv(
+                    city_objects_with_gmlid_key[self.building_id].triangles[1],
+                    self.image,
+                    atlasImg)
         else :
-            self.child[0].createAtlasImage(atlasImg, tileGeom)
-            self.child[1].createAtlasImage(atlasImg, tileGeom)
+            self.child[0].fillAtlasImage(atlasImg, city_objects_with_gmlid_key)
+            self.child[1].fillAtlasImage(atlasImg, city_objects_with_gmlid_key)
 
 
     def updateUv(self, uvs, oldTexture, newTexture):
         """
         :param uvs : an UV array
+
         :param oldTexture : a pillow image, representing the old texture 
                         associated to the uvs
+
         :param newTexture : a pillow image, representing the new texture 
         """
         oldWidth, oldHeight= (oldTexture.size)
@@ -192,33 +238,76 @@ class Node(object):
 
 def computeArea(size):
     """
-        :param size : an array with a width and a height of a texture
+    :param size : an array with a width and a height of a texture
 
-        :rtype float: the area of the texture
+    :rtype float: the area of the texture
     """
     width, height = size
     return width * height
 
-def byteToPng(textureUri, objects_type, cursor):
-        """
-        :param textureUri : a texture Uri in the database
-        :param objects_type: a class name among CityMCityObject derived classes.
-                        For example, objects_type can be "CityMBuilding".
-        :param cursor: a database access cursor
-        :rtype pillow.image:
+def getTexture(textureUri, objects_type, cursor):
     """
-    imageBinaryData = objects_type.retrieve_textures(cursor, textureUri, objects_type)
+    :param textureUri : a texture Uri in the database
+
+    :param objects_type: a class name among CityMCityObject derived classes.
+                    For example, objects_type can be "CityMBuilding".
+
+    :param cursor: a database access cursor
+
+    :rtype pillow.image:
+    """
+    imageBinaryData = objects_type.retrieve_textures(
+        cursor,
+        textureUri,
+        objects_type)
     LEFT_THUMB = imageBinaryData[0][0]
     stream = BytesIO(LEFT_THUMB)
     image = Image.open(stream).convert("RGBA")
     return image
 
 def multipleOf2(nb):
-        """
-        :param nb: a number
-        :rtype float: The first multiple of 2 greater than the number
+    """
+    :param nb: a number
+
+    :rtype float: The first multiple of 2 greater than the number
     """
     i = 1
     while i < nb :
         i*=2
     return i
+
+def computeAtlasTree(textures_sorted):
+    """
+    :param textures_sorted:  A dictionnary, with building_id as key, 
+                        and pillow image as value.
+
+    :rtype node: the root node of the atlas tree
+    """
+    surfaceAtlas = 0
+    for key, image in textures_sorted:
+        # Add the surface of the current texture to the atlas one
+        surfaceAtlas+= computeArea(image.size)
+
+    # We estimate the size of the atlas to be around the nearest power of 2 
+    # of the squareroot of all surfaces combined. There will be cases 
+    # where this does not work, since this creates a square.  
+    sizeOfAtlas = multipleOf2(np.sqrt(surfaceAtlas))
+
+    rect = Rectangle(0,0,sizeOfAtlas,sizeOfAtlas)
+    node_root = None
+    while node_root == None :
+        node_root = Node(rect)
+        for key, image in textures_sorted:
+            node_root = node_root.insert(image,key)
+            if node_root == None:
+                # If the node_root is None, this means that the estimation 
+                # of the size of the atlas is wrong and must be enlarged
+                rect = Rectangle(
+                            0,
+                            0,
+                            rect.get_width() * 2,
+                            rect.get_height() * 2
+                            )
+                break
+    return node_root
+
