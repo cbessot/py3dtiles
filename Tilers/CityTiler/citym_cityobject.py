@@ -251,7 +251,7 @@ class CityMCityObjects:
             texture_uri = t[3]
 
             if geom_as_string is None:
-                # Some thematic surface mimageConvertay have no geometry 
+                # Some thematic surface may have no geometry 
                 # (due to a cityGML exporter bug?): simply ignore them.
                 print("Warning: no valid geometry in database.")
                 sys.exit(1)
